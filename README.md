@@ -25,6 +25,9 @@ Download `Flight_Delays_Cleaned.csv` from the Kaggle page above into `raw/`.
 streamlit run dashboard/app.py
 ```
 
+Dashboard **layout** rules (filters, cards, chart units, missing parquet): `dashboard/DASHBOARD.md`.  
+KPI **formulas**: `KPI_DICTIONARY.md`.
+
 ## Layout
 
 ```text
