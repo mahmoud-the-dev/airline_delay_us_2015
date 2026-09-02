@@ -11,7 +11,7 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 
 - Load **only** `clean/flights.parquet` (BQ5 later may also load `clean/delay_risk_bands.parquet`).
 - Wrap the load in `@st.cache_data`.
-- If parquet is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`.
+- If parquet is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`. For Streamlit Cloud, keep `clean/flights.parquet` in git so that file exists on deploy.
 - **Never** read `raw/Flight_Delays_Cleaned.csv` in the app.
 - Keep title + source caption. Do not keep the old success/warning/info stub once the dashboard is live.
 

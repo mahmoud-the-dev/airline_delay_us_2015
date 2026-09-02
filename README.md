@@ -6,7 +6,7 @@ DSS 2026 group project. Stack: **pandas** (clean) · **Plotly** (charts) · **St
 
 - **File:** `Flight_Delays_Cleaned.csv` (~10 MB, 50,000 rows, 2015)
 - **Kaggle:** https://www.kaggle.com/datasets/saurabhanand56/us-flight-delays-2015-cleaned-50k-ml-ready
-- **Put the CSV in** `raw/` (do not commit the CSV if the repo is shared publicly)
+- **Put the CSV in** `raw/` (do not commit the CSV). Streamlit Cloud uses committed `clean/flights.parquet`.
 
 Cancel rate on the Kaggle preview was ~2%, so this is an operations sample, not a balanced ML extract.
 

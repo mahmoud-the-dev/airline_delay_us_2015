@@ -6,10 +6,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
-# Data (download CSV; regenerate parquet with src/clean.py)
+# Data (download CSV locally; Streamlit Cloud loads committed parquet)
 raw/*.csv
 raw/*.zip
 clean/*.parquet
+!clean/flights.parquet
 clean/*.csv
 sample/*.csv
 sample/*.parquet
