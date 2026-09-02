@@ -1,0 +1,23 @@
+# Local env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Data (download CSV; regenerate parquet with src/clean.py)
+raw/*.csv
+raw/*.zip
+clean/*.parquet
+clean/*.csv
+sample/*.csv
+sample/*.parquet
+
+# Streamlit / OS
+.streamlit/secrets.toml
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+.~lock.*
