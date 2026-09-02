@@ -1,17 +1,27 @@
-# KPI dictionary v0 (freeze with Person B+C)
+# KPI dictionary v1 — frozen 2 Sep 2026
 
-Any PDF number must match a function in `dashboard/metrics.py`.
+PoC and final project use the **same** rules. Any number on the dashboard or in the PDF must come from `dashboard/metrics.py`.
 
-| KPI | Definition (draft) | Owner of formula |
-|-----|--------------------|------------------|
-| Flights | Count of flight records in scope | B (`metrics.py`) / A (grain) |
-| Delayed flight | Arrival (or departure) delay ≥ 15 minutes — **pick arrival vs departure and freeze** | C+B lock |
-| Delay rate | Delayed flights / flights | B |
-| Avg delay minutes | Average delay among delayed **or** all flights — **pick one and freeze** | C+B |
-| Total delay minutes | Sum of delay minutes | B |
-| Cause share | Cause minutes / total cause minutes (Airline/Carrier, Weather, Air System/NAS, Security, Late Aircraft) | B |
-| Cancel rate | Cancelled / flights | B |
-| Divert rate | Diverted / flights — side KPI only (not a locked BQ; too few rows for airport cuts) | B |
-| Delay risk band | Low / Medium / High from historical delay rate at airline × day-of-week × time-block; apply a volume floor (e.g. ≥30 flights). Not a forecast. | A (table) / B (`metrics.py`) |
+## Freeze (do not reopen)
 
-Draft delay threshold = **≥ 15 minutes** (DOT convention). Confirm at Sync-1.
+1. **Delayed** = `ARRIVAL_DELAY >= 15`
+2. **Operated** = not cancelled and not diverted
+3. **Delay rate** = delayed operated flights / operated flights
+4. **Avg delay minutes** = mean `ARRIVAL_DELAY` among **delayed** operated flights
+
+## KPI formulas
+
+| KPI                 | Definition                                                                                                                  | Notes                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Flights             | Count of rows in the current filter                                                                                         | Includes cancelled/diverted                                   |
+| Operated flights    | Rows that are not cancelled and not diverted                                                                                | Denominator for delay rate                                    |
+| Delayed flight      | Operated **and** `ARRIVAL_DELAY >= 15`                                                                                      | DOT-style threshold                                           |
+| Delay rate          | Delayed / operated                                                                                                          | Not delayed / all rows                                        |
+| Avg delay minutes   | Mean arrival delay among delayed operated flights                                                                           | Not the mean of all flights                                   |
+| Total delay minutes | Sum of `ARRIVAL_DELAY` among delayed operated flights                                                                       |                                                               |
+| Cause share         | Each cause’s minutes / sum of the five cause columns                                                                        | Only filled when arrival delay ≥ 15 (BQ2; not needed for PoC) |
+| Cancel rate         | Cancelled / flights (all rows in filter)                                                                                    | BQ4; not needed for PoC                                       |
+| Divert rate         | Diverted / flights                                                                                                          | Side KPI only                                                 |
+| Delay risk band     | Low / Medium / High from historical delay rate at airline × day-of-week × time-block; drop cells with fewer than 30 flights | BQ5; not needed for PoC                                       |
+
+**Cause columns:** `AIRLINE_DELAY` (Carrier), `WEATHER_DELAY`, `AIR_SYSTEM_DELAY` (NAS), `SECURITY_DELAY`, `LATE_AIRCRAFT_DELAY`.

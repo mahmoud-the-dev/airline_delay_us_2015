@@ -4,20 +4,20 @@
 
 ## Source
 
-| Field | Value |
-|-------|--------|
-| Topic | Airline Delay Intelligence (DSS project 2026, topic 3) |
-| Original collector | USDOT / Bureau of Transportation Statistics (BTS) — 2015 domestic on-time performance |
-| Kaggle pack | [US Flight Delays 2015 — Cleaned (50K, ML-Ready)](https://www.kaggle.com/datasets/saurabhanand56/us-flight-delays-2015-cleaned-50k-ml-ready) (`saurabhanand56`) |
-| Working file | `Flight_Delays_Cleaned.csv` |
-| License | Follow the Kaggle page; underlying BTS on-time data is U.S. government public-domain statistical data |
-| Years | **2015 only** |
-| Rows | 50,000 (extract of the national 2015 file, not a census) |
-| Grain | One row = one scheduled flight |
-| Sanity check | Cancelled = **1.59%** in the downloaded file (operations mix, not a 50/50 delay-balanced ML file) |
-| Local path | `raw/Flight_Delays_Cleaned.csv` |
+| ~Field             | Value                                                                                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic              | Airline Delay Intelligence (DSS project 2026, topic 3)                                                                                                          |
+| Original collector | USDOT / Bureau of Transportation Statistics (BTS) — 2015 domestic on-time performance                                                                           |
+| Kaggle pack        | [US Flight Delays 2015 — Cleaned (50K, ML-Ready)](https://www.kaggle.com/datasets/saurabhanand56/us-flight-delays-2015-cleaned-50k-ml-ready) (`saurabhanand56`) |
+| Working file       | `Flight_Delays_Cleaned.csv`                                                                                                                                     |
+| License            | Follow the Kaggle page; underlying BTS on-time data is U.S. government public-domain statistical data                                                           |
+| Years              | **2015 only**                                                                                                                                                   |
+| Rows               | 50,000 (extract of the national 2015 file, not a census)                                                                                                        |
+| Grain              | One row = one scheduled flight                                                                                                                                  |
+| Sanity check       | Cancelled = **1.59%** in the downloaded file (operations mix, not a 50/50 delay-balanced ML file)                                                               |
+| Local path         | `raw/Flight_Delays_Cleaned.csv`                                                                                                                                 |
 
-Cite in the PDF as: *US flight delay data from the Bureau of Transportation Statistics (2015), Kaggle extract “US Flight Delays 2015 — Cleaned (50K)”.*
+Cite in the PDF as: _US flight delay data from the Bureau of Transportation Statistics (2015), Kaggle extract “US Flight Delays 2015 — Cleaned (50K)”._
 
 ## Scope limits (also Limitations bullets)
 
