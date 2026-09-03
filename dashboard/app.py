@@ -18,6 +18,7 @@ from dashboard.theme import PLOTLY_TEMPLATE
 
 CLEAN = ROOT / "clean" / "flights.parquet"
 MONTHS = list(range(1, 13))
+HOURS = list(range(0, 24))
 
 st.set_page_config(page_title="Airline Delay Intelligence", layout="wide")
 st.title("Airline Delay Intelligence")
@@ -31,8 +32,14 @@ st.markdown(
 
 
 @st.cache_data
-def load_flights() -> pd.DataFrame:
-    return pd.read_parquet(CLEAN)
+def load_flights(mtime: float) -> pd.DataFrame:
+    df = pd.read_parquet(CLEAN)
+    if "DEP_HOUR" not in df.columns:
+        df = df.copy()
+        df["DEP_HOUR"] = (
+            pd.to_numeric(df["SCHEDULED_DEPARTURE"], errors="coerce") // 100
+        ).clip(0, 23)
+    return df
 
 
 def fmt_pct(value: float) -> str:
@@ -56,7 +63,7 @@ if not CLEAN.exists():
     st.error("Clean table not found. Run `python src/clean.py` to write `clean/flights.parquet`.")
     st.stop()
 
-df = load_flights()
+df = load_flights(CLEAN.stat().st_mtime)
 all_airlines = sorted(df["AIRLINE_NAME"].dropna().unique().tolist())
 
 if "airline_filter" not in st.session_state:
@@ -118,3 +125,27 @@ fig_b.update_layout(
     margin=dict(l=10, r=10, t=48, b=10),
 )
 st.plotly_chart(fig_b, use_container_width=True)
+
+by_hour = ops.groupby("DEP_HOUR")["DELAYED"].mean().reindex(HOURS).rename("DELAYED").reset_index()
+fig_c = px.bar(
+    by_hour,
+    x="DEP_HOUR",
+    y="DELAYED",
+    template=PLOTLY_TEMPLATE,
+    title="Delay rate by scheduled departure hour (operated flights)",
+)
+fig_c.update_layout(
+    xaxis=dict(
+        title="Scheduled departure hour",
+        type="category",
+        categoryarray=HOURS,
+        categoryorder="array",
+    ),
+    yaxis=dict(tickformat=".1%", title="Delay rate"),
+    margin=dict(l=10, r=10, t=48, b=10),
+)
+st.plotly_chart(fig_c, use_container_width=True)
+st.caption(
+    "Hour is scheduled departure (`DEP_HOUR`, 0–23). Same grain as the cards: delayed ÷ operated. "
+    "Overnight hours are thin, so treat 0–4% swings there as noise."
+)

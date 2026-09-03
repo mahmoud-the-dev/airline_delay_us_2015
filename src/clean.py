@@ -25,6 +25,9 @@ def main() -> None:
     # Delayed flag
     df["DELAYED"] = df["OPERATED"] & (df["ARRIVAL_DELAY"] >= 15)
 
+    # Departure hour
+    df["DEP_HOUR"] = (df["SCHEDULED_DEPARTURE"] // 100).clip(0, 23)
+
     #label Airline codes
     NAMES = {
         "WN": "Southwest", "DL": "Delta", "AA": "American", "OO": "SkyWest",
