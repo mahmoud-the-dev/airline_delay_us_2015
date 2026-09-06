@@ -14,11 +14,11 @@ We called `drop_duplicates` and the row count stayed 50,000, because the extract
 
 We added `OPERATED` as not cancelled and not diverted, `DELAYED` as operated and `ARRIVAL_DELAY` at least 15 minutes, and `AIRLINE_NAME` from the two-letter code, keeping the raw code if a name were missing, which never happened in this extract. Time-of-day blocks are planned for final and are not in the parquet yet.
 
-Normalization is N/A, since we did not min-max or z-score any column and delay rate is already a share between 0 and 1 that does not need scaling for this page. Aggregation is for the dashboard only, so the stored table stays flight-level while the app groups operated rows by airline and by month.
+No normalization was applied to any column. The stored table stays flight-level, while the app groups operated rows by airline and by month.
 
 ### b. Modeling / dashboard design
 
-We structured the table for a filterable BI page, not a fitted model. pandas writes the clean table, `dashboard/metrics.py` holds the KPI functions, and Streamlit plus Plotly draw the page, while we froze the definitions in `KPI_DICTIONARY.md` and the page calls `flights`, `delay_rate`, and `avg_delay_minutes` on the filtered frame instead of recomputing those ratios in the layout.
+We structured the table for a filterable BI page. pandas writes the clean table, `dashboard/metrics.py` holds the KPI functions, and Streamlit plus Plotly draw the page, while we froze the definitions in `KPI_DICTIONARY.md` and the page calls `flights`, `delay_rate`, and `avg_delay_minutes` on the filtered frame instead of recomputing those ratios in the layout.
 
 The sidebar has a single filter on airline names. Clearing the list leaves zero rows, so the flights card shows 0 and delay rate and average delay show a dash rather than 0% or 0 min, and Reset is the only control that puts every airline back. Month filters are planned for final.
 
