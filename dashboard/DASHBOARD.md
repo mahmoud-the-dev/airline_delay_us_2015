@@ -11,7 +11,7 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 
 - Load **only** `clean/flights.parquet` (BQ5 later may also load `clean/delay_risk_bands.parquet`).
 - Wrap the load in `@st.cache_data`.
-- If parquet is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`.
+- If parquet is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`. For Streamlit Cloud, keep `clean/flights.parquet` in git so that file exists on deploy.
 - **Never** read `raw/Flight_Delays_Cleaned.csv` in the app.
 - Keep title + source caption. Do not keep the old success/warning/info stub once the dashboard is live.
 
@@ -45,7 +45,9 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 - Plotly axis **and** hover: percent ticks (e.g. `.1%`) so they match the card.
 - Chart A (airlines): groupby `AIRLINE_NAME`, sort worst delay rate first.
 - Chart B (month): groupby `MONTH` (1–12). Axis title `Month`. `xaxis` type `category` with `categoryarray=[1..12]` so January stays left. Missing months = gap, not interpolated.
+- Chart C (hour, PoC extra): groupby `DEP_HOUR` (0–23). Clock order, not worst-first. Same `category` + `categoryarray` pattern as month. Missing hours = gap. Overnight bins are small-*n*; do not treat them as a ranking.
 - Cancelled/diverted belong on cancel-rate views later, not in these delay-rate charts.
+- Airport rankings (top origins/destinations): use `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
 
 ---
 
