@@ -55,6 +55,16 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 
 ---
 
+## Cause-minute charts (Causes tab)
+
+- Population = delayed operated rows (`metrics.cause_minutes` / `metrics.cause_share`). Not delay rate.
+- Share = each cause’s minutes / sum of the five cause columns. Axis and hover as percent. Do not multiply by 100 in pandas.
+- Stacked bar: call `cause_share` / `cause_minutes` per airline. 100% stack (`range` 0–1). Skip airlines with no cause minutes.
+- Overall pie (or treemap): `cause_minutes(filtered)` as slice size; percents match `cause_share(filtered)`.
+- Caption: causes exist only for arrival delay ≥ 15 min.
+
+---
+
 ## Four tabs
 
 Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
@@ -62,7 +72,7 @@ Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
 | Tab | Content now | Later | BQs |
 |-----|-------------|-------|-----|
 | 1 Overview | KPIs; delay rate by airline; vs overall; by month; top-15 origins; avg delay minutes by airline | — | BQ1 |
-| 2 Causes | KPIs only | cause-minute shares | BQ2 |
+| 2 Causes | KPIs; cause-minute share stacked by airline; overall pie | — | BQ2 |
 | 3 Time & risk | KPIs; delay rate by scheduled hour | DOW, time-block, heatmap; historical risk bands | BQ3, BQ5 |
 | 4 Cancels vs delay | KPIs only | cancel rate views; delay vs cancel scatter | BQ4 (+ leftover BQ1) |
 

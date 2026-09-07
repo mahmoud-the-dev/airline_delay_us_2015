@@ -14,8 +14,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard.metrics import (
+    CAUSE_COLS,
     avg_delay_minutes,
     cancel_rate,
+    cause_minutes,
+    cause_share,
     delay_rate,
     delayed_operated,
     flights,
@@ -27,6 +30,14 @@ from dashboard.theme import PLOTLY_TEMPLATE
 CLEAN = ROOT / "clean" / "flights.parquet"
 MONTHS = list(range(1, 13))
 HOURS = list(range(0, 24))
+CAUSE_LABELS = {
+    "AIRLINE_DELAY": "Carrier",
+    "WEATHER_DELAY": "Weather",
+    "AIR_SYSTEM_DELAY": "NAS",
+    "SECURITY_DELAY": "Security",
+    "LATE_AIRCRAFT_DELAY": "Late aircraft",
+}
+CAUSE_ORDER = [CAUSE_LABELS[c] for c in CAUSE_COLS]
 
 st.set_page_config(page_title="Airline Delay Intelligence", layout="wide")
 st.title("Airline Delay Intelligence")
@@ -65,6 +76,36 @@ def fmt_minutes(value: float) -> str:
 def apply_delay_rate_axis(fig, *, x_is_rate: bool) -> None:
     axis = "xaxis" if x_is_rate else "yaxis"
     fig.update_layout({axis: dict(tickformat=".1%", title="Delay rate")})
+
+
+def cause_long(df: pd.DataFrame) -> pd.DataFrame:
+    """Share and minutes per cause. Empty when `cause_share` is all nan."""
+    share = cause_share(df)
+    mins = cause_minutes(df)
+    out = pd.DataFrame(
+        {
+            "cause": CAUSE_ORDER,
+            "share": [share[c] for c in CAUSE_COLS],
+            "minutes": [mins[c] for c in CAUSE_COLS],
+        }
+    )
+    if out["share"].isna().all():
+        return out.iloc[0:0]
+    return out
+
+
+def cause_share_by_airline(df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for airline, part in df.groupby("AIRLINE_NAME", observed=True):
+        long = cause_long(part)
+        if len(long) == 0:
+            continue
+        long = long.copy()
+        long["AIRLINE_NAME"] = airline
+        rows.append(long)
+    if not rows:
+        return pd.DataFrame(columns=["cause", "share", "minutes", "AIRLINE_NAME"])
+    return pd.concat(rows, ignore_index=True)
 
 
 def render_kpis(filtered: pd.DataFrame) -> None:
@@ -229,6 +270,52 @@ with tab_overview:
 
 with tab_causes:
     render_kpis(filtered)
+
+    st.subheader("What drives delay minutes?")
+    by_cause_airline = cause_share_by_airline(filtered)
+    overall_causes = cause_long(filtered)
+
+    if len(by_cause_airline):
+        airline_order = (
+            by_cause_airline.groupby("AIRLINE_NAME")["minutes"].sum().sort_values(ascending=False).index.tolist()
+        )
+        fig_stack = px.bar(
+            by_cause_airline,
+            x="share",
+            y="AIRLINE_NAME",
+            color="cause",
+            orientation="h",
+            barmode="stack",
+            category_orders={"AIRLINE_NAME": airline_order, "cause": CAUSE_ORDER},
+            hover_data={"share": ":.1%", "minutes": ":.0f"},
+            template=PLOTLY_TEMPLATE,
+            title="Cause-minute share by airline",
+        )
+        fig_stack.update_yaxes(title="Airline", autorange="reversed")
+        fig_stack.update_layout(
+            xaxis=dict(tickformat=".1%", title="Cause share", range=[0, 1]),
+            legend_title="Cause",
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        st.plotly_chart(fig_stack, use_container_width=True)
+
+    if len(overall_causes):
+        fig_pie = px.pie(
+            overall_causes,
+            names="cause",
+            values="minutes",
+            category_orders={"cause": CAUSE_ORDER},
+            template=PLOTLY_TEMPLATE,
+            title="Cause-minute share (overall)",
+        )
+        fig_pie.update_traces(
+            textinfo="percent+label",
+            hovertemplate="%{label}<br>Share=%{percent}<br>Minutes=%{value:,.0f}<extra></extra>",
+        )
+        fig_pie.update_layout(margin=dict(l=10, r=10, t=48, b=10))
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    st.caption("Causes exist only for arrival delay ≥ 15 min.")
 
 with tab_time:
     render_kpis(filtered)
