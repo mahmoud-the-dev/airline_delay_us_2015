@@ -1,5 +1,7 @@
 # Changelog (Person A)
 
+- 2026-09-07: Overview BQ1: top-15 origin delay rates via `top_origins`, avg delay minutes by airline, delay rate minus overall.
+- 2026-09-07: Four-tab dashboard shell (`st.tabs`), shared airline+month sidebar, parquet-only load, KPI row (incl. cancel rate) on every tab; hour chart moved to Time & risk.
 - 2026-09-07: KPI functions complete.
 - 2026-09-07: Map October 5-digit BTS origin/dest IDs to IATA in `src/clean.py`; leftover IDs stay numeric and are flagged off airport charts only.
 - 2026-09-03: Track `clean/flights.parquet` so Streamlit Cloud can load the dashboard without a local `src/clean.py` run.

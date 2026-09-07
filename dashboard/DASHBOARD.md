@@ -3,7 +3,7 @@
 **Formulas live in** `KPI_DICTIONARY.md` **and** `metrics.py`.  
 **This file is how the Streamlit page is allowed to behave.** Copy these rules on every later tab. Do not keep the contract only as comments in `app.py`.
 
-PoC today = one page (slim BQ1). Final app = four tabs, same contract.
+Four tabs in `dashboard/app.py`, same contract on every tab.
 
 ---
 
@@ -19,22 +19,23 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 
 ## Filter
 
-- One sidebar filter frame shared by the whole page (and later by all tabs).
-- Airline: `filtered = df[df["AIRLINE_NAME"].isin(selected)]`.
-- **Empty multiselect = no rows**, not “all airlines.” KPIs go to 0 flights / `nan` rates. **Reset** is the only path back to all airlines.
-- Sidebar help: clearing the list shows no flights; Reset restores all.
-- Month (and other cuts) later: same honesty — empty means empty, not “ignore this filter.”
+- One sidebar filter frame shared by all tabs. Filter **once**; every tab uses that same `filtered` frame.
+- Airline: `df["AIRLINE_NAME"].isin(selected_airlines)`.
+- Month: `df["MONTH"].isin(selected_months)` with options 1–12.
+- **Empty multiselect = no rows**, not “ignore this filter.” KPIs go to 0 flights / `nan` rates.
+- **Reset** is the only path that puts both lists back to all.
+- Sidebar help: clearing a list shows no flights; Reset restores all airlines and months.
 
 ---
 
 ## KPI cards
 
-- Three columns of `st.metric` (PoC). Later tabs may add cancel rate, etc., still via `metrics.py` only.
-- Call `metrics.flights`, `metrics.delay_rate`, `metrics.avg_delay_minutes` on **`filtered`**. No `mean()` / `/` in the layout.
+- Four columns of `st.metric` on **every** tab: Flights, Delay rate, Avg delay minutes, Cancel rate.
+- Call `metrics.flights`, `metrics.delay_rate`, `metrics.avg_delay_minutes`, `metrics.cancel_rate` on **`filtered`**. No `mean()` / `/` in the layout.
 - **Flights:** integer with thousands separators. `0` is a real count.
 - **Delay rate:** 0–1 float shown as percent, one decimal (`18.2%`).
 - **Avg delay:** one decimal + ` min`.
-- If `delay_rate` or `avg_delay_minutes` is `nan` (`pd.isna`): show **—**, never `0%` or `0 min`.
+- If `delay_rate`, `avg_delay_minutes`, or `cancel_rate` is `nan` (`pd.isna`): show **—**, never `0%` or `0 min`.
 
 ---
 
@@ -44,23 +45,26 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 - Series = `["DELAYED"].mean()` as **0–1**. Do not multiply by 100 in pandas.
 - Plotly axis **and** hover: percent ticks (e.g. `.1%`) so they match the card.
 - Chart A (airlines): groupby `AIRLINE_NAME`, sort worst delay rate first.
+- Chart A2 (vs overall, Overview): same airline delay rates minus `metrics.delay_rate(filtered)`. Positive = worse than the KPI card. Zero line at 0. Skip when overall rate is `nan`.
 - Chart B (month): groupby `MONTH` (1–12). Axis title `Month`. `xaxis` type `category` with `categoryarray=[1..12]` so January stays left. Missing months = gap, not interpolated.
-- Chart C (hour, PoC extra): groupby `DEP_HOUR` (0–23). Clock order, not worst-first. Same `category` + `categoryarray` pattern as month. Missing hours = gap. Overnight bins are small-*n*; do not treat them as a ranking.
+- Chart C (hour, Time & risk): groupby `DEP_HOUR` (0–23). Clock order, not worst-first. Same `category` + `categoryarray` pattern as month. Missing hours = gap. Overnight bins are small-*n*; do not treat them as a ranking.
+- Chart D (top 15 origins, Overview): `metrics.top_origins(filtered, n=15)` — busiest IATA origins by flight count; plot `delay_rate` (0–1, percent ticks). Unmatched BTS IDs are dropped from this chart only. Do not drop all of October.
+- Chart E (avg delay minutes by airline, Overview): `metrics.delayed_operated(filtered)`, groupby `AIRLINE_NAME` mean `ARRIVAL_DELAY`, worst first. Same grain as the avg-delay card.
 - Cancelled/diverted belong on cancel-rate views later, not in these delay-rate charts.
-- Airport rankings (top origins/destinations): use `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
+- Airport rankings (top origins/destinations): use `metrics.top_origins` / `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
 
 ---
 
-## Final four tabs (do not build in the PoC)
+## Four tabs
 
 Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
 
-| Tab | Content | BQs |
-|-----|---------|-----|
-| 1 Overview | KPIs; delay rate by airline; by month; later top-15 origins | BQ1 |
-| 2 Causes | Cause-minute shares | BQ2 |
-| 3 Time & risk | DOW, time-block, heatmap; historical risk bands | BQ3, BQ5 |
-| 4 Cancels vs delay | Cancel rate; delay vs cancel scatter | BQ4 (+ leftover BQ1) |
+| Tab | Content now | Later | BQs |
+|-----|-------------|-------|-----|
+| 1 Overview | KPIs; delay rate by airline; vs overall; by month; top-15 origins; avg delay minutes by airline | — | BQ1 |
+| 2 Causes | KPIs only | cause-minute shares | BQ2 |
+| 3 Time & risk | KPIs; delay rate by scheduled hour | DOW, time-block, heatmap; historical risk bands | BQ3, BQ5 |
+| 4 Cancels vs delay | KPIs only | cancel rate views; delay vs cancel scatter | BQ4 (+ leftover BQ1) |
 
 No fifth tab for BQ5.
 
