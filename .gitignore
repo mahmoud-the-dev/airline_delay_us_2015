@@ -11,6 +11,7 @@ raw/*.csv
 raw/*.zip
 clean/*.parquet
 !clean/flights.parquet
+!clean/delay_risk_bands.parquet
 clean/*.csv
 sample/*.csv
 sample/*.parquet
