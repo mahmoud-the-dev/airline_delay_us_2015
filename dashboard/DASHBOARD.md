@@ -9,9 +9,8 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 
 ## Load
 
-- Load **only** `clean/flights.parquet` (BQ5 later may also load `clean/delay_risk_bands.parquet`).
-- Wrap the load in `@st.cache_data`.
-- If parquet is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`. For Streamlit Cloud, keep `clean/flights.parquet` in git so that file exists on deploy.
+- Load **only** `clean/flights.parquet`. BQ5 also loads `clean/delay_risk_bands.parquet` (`@st.cache_data`). If the bands file is missing, the Time & risk tab warns and skips the lookup; the rest of the app still runs.
+- If `flights.parquet` is missing: `st.error` telling the user to run `python src/clean.py`, then `st.stop()`. For Streamlit Cloud, keep `clean/flights.parquet` in git so that file exists on deploy.
 - **Never** read `raw/Flight_Delays_Cleaned.csv` in the app.
 - Keep title + source caption. Do not keep the old success/warning/info stub once the dashboard is live.
 
@@ -48,6 +47,9 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 - Chart A2 (vs overall, Overview): same airline delay rates minus `metrics.delay_rate(filtered)`. Positive = worse than the KPI card. Zero line at 0. Skip when overall rate is `nan`.
 - Chart B (month): groupby `MONTH` (1–12). Axis title `Month`. `xaxis` type `category` with `categoryarray=[1..12]` so January stays left. Missing months = gap, not interpolated.
 - Chart C (hour, Time & risk): groupby `DEP_HOUR` (0–23). Clock order, not worst-first. Same `category` + `categoryarray` pattern as month. Missing hours = gap. Overnight bins are small-*n*; do not treat them as a ranking.
+- Chart F (weekday, Time & risk): groupby `DOW_NAME`, Monday → Sunday.
+- Chart G (time block, Time & risk): groupby `TIME_BLOCK`, Overnight → Morning → Afternoon → Evening → Night.
+- Chart H (heatmap, Time & risk): weekday × time-block, operated `DELAYED` mean, percent colorbar. Empty cells = gap.
 - Chart D (top 15 origins, Overview): `metrics.top_origins(filtered, n=15)` — busiest IATA origins by flight count; plot `delay_rate` (0–1, percent ticks). Unmatched BTS IDs are dropped from this chart only. Do not drop all of October.
 - Chart E (avg delay minutes by airline, Overview): `metrics.delayed_operated(filtered)`, groupby `AIRLINE_NAME` mean `ARRIVAL_DELAY`, worst first. Same grain as the avg-delay card.
 - Cancelled/diverted belong on cancel-rate views later, not in these delay-rate charts.
@@ -65,6 +67,15 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 
 ---
 
+## Historical risk lookup (Time & risk, BQ5)
+
+- Load `clean/delay_risk_bands.parquet`. Do not rebuild bands in the app.
+- Filter by selected airlines (`AIRLINE_NAME`). Empty airline list = no cells. Month does not apply (year-round n≥30 cells).
+- Heatmap: weekday × time-block delay rate from the lookup (n-weighted if several airlines). Table: airline, weekday, block, flights, delay rate, `DELAY_RISK_BAND`.
+- Caption: historical 2015 risk, not a prediction. Low < 15%, Medium 15% to < 25%, High ≥ 25%.
+
+---
+
 ## Four tabs
 
 Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
@@ -73,7 +84,7 @@ Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
 |-----|-------------|-------|-----|
 | 1 Overview | KPIs; delay rate by airline; vs overall; by month; top-15 origins; avg delay minutes by airline | — | BQ1 |
 | 2 Causes | KPIs; cause-minute share stacked by airline; overall pie | — | BQ2 |
-| 3 Time & risk | KPIs; delay rate by scheduled hour | DOW, time-block, heatmap; historical risk bands | BQ3, BQ5 |
+| 3 Time & risk | KPIs; delay rate by weekday, time block, weekday×block heatmap, hour; historical risk heatmap + table | — | BQ3, BQ5 |
 | 4 Cancels vs delay | KPIs only | cancel rate views; delay vs cancel scatter | BQ4 (+ leftover BQ1) |
 
 No fifth tab for BQ5.

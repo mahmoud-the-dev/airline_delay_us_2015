@@ -1,5 +1,6 @@
 # Changelog (Person A)
 
+- 2026-09-07: Time & risk BQ3 (weekday, time block, heatmap, hour) and BQ5 (`delay_risk_bands.parquet` heatmap + table; historical 2015, not a prediction).
 - 2026-09-07: Causes BQ2: cause-minute share stacked by airline plus overall pie (`cause_share` / `cause_minutes`).
 - 2026-09-07: Overview BQ1: top-15 origin delay rates via `top_origins`, avg delay minutes by airline, delay rate minus overall.
 - 2026-09-07: Four-tab dashboard shell (`st.tabs`), shared airline+month sidebar, parquet-only load, KPI row (incl. cancel rate) on every tab; hour chart moved to Time & risk.

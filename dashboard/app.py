@@ -28,8 +28,11 @@ from dashboard.metrics import (
 from dashboard.theme import PLOTLY_TEMPLATE
 
 CLEAN = ROOT / "clean" / "flights.parquet"
+BANDS = ROOT / "clean" / "delay_risk_bands.parquet"
 MONTHS = list(range(1, 13))
 HOURS = list(range(0, 24))
+DOW_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+TIME_BLOCK_ORDER = ["Overnight", "Morning", "Afternoon", "Evening", "Night"]
 CAUSE_LABELS = {
     "AIRLINE_DELAY": "Carrier",
     "WEATHER_DELAY": "Weather",
@@ -61,6 +64,11 @@ def load_flights(mtime: float) -> pd.DataFrame:
     return df
 
 
+@st.cache_data
+def load_risk_bands(mtime: float) -> pd.DataFrame:
+    return pd.read_parquet(BANDS)
+
+
 def fmt_pct(value: float) -> str:
     if pd.isna(value):
         return "—"
@@ -71,6 +79,71 @@ def fmt_minutes(value: float) -> str:
     if pd.isna(value):
         return "—"
     return f"{value:.1f} min"
+
+
+def delay_rate_matrix(
+    df: pd.DataFrame, row_col: str, col_col: str, row_order: list[str], col_order: list[str]
+) -> pd.DataFrame:
+    empty = pd.DataFrame(index=row_order, columns=col_order, dtype="float64")
+    if len(df) == 0:
+        return empty
+    mat = (
+        df.groupby([row_col, col_col], observed=True)["DELAYED"]
+        .mean()
+        .unstack(col_col)
+    )
+    return mat.reindex(index=row_order, columns=col_order)
+
+
+def bands_rate_matrix(bands: pd.DataFrame) -> pd.DataFrame:
+    empty = pd.DataFrame(index=DOW_ORDER, columns=TIME_BLOCK_ORDER, dtype="float64")
+    if len(bands) == 0:
+        return empty
+    w = bands.copy()
+    w["num"] = w["delay_rate"] * w["n_flights"]
+    g = w.groupby(["DOW_NAME", "TIME_BLOCK"], observed=True).agg(
+        num=("num", "sum"), den=("n_flights", "sum")
+    )
+    rate = (g["num"] / g["den"]).rename("delay_rate").reset_index()
+    mat = rate.pivot(index="DOW_NAME", columns="TIME_BLOCK", values="delay_rate")
+    return mat.reindex(index=DOW_ORDER, columns=TIME_BLOCK_ORDER)
+
+
+def delay_rate_heatmap(mat: pd.DataFrame, title: str):
+    fig = px.imshow(
+        mat.astype("float64"),
+        x=[str(c) for c in mat.columns],
+        y=[str(i) for i in mat.index],
+        color_continuous_scale="YlOrRd",
+        aspect="auto",
+        template=PLOTLY_TEMPLATE,
+        title=title,
+        labels={"color": "Delay rate"},
+    )
+    fig.update_layout(
+        coloraxis_colorbar=dict(tickformat=".1%"),
+        margin=dict(l=10, r=10, t=48, b=10),
+        xaxis_title="",
+        yaxis_title="",
+    )
+    fig.update_traces(hovertemplate="%{y} · %{x}<br>Delay rate=%{z:.1%}<extra></extra>")
+    return fig
+
+
+def delay_rate_category_bar(frame: pd.DataFrame, x_col: str, categories: list, title: str, x_title: str):
+    fig = px.bar(
+        frame,
+        x=x_col,
+        y="DELAYED",
+        template=PLOTLY_TEMPLATE,
+        title=title,
+    )
+    fig.update_layout(
+        xaxis=dict(title=x_title, type="category", categoryarray=categories, categoryorder="array"),
+        yaxis=dict(tickformat=".1%", title="Delay rate"),
+        margin=dict(l=10, r=10, t=48, b=10),
+    )
+    return fig
 
 
 def apply_delay_rate_axis(fig, *, x_is_rate: bool) -> None:
@@ -126,6 +199,7 @@ if not CLEAN.exists():
     st.stop()
 
 df = load_flights(CLEAN.stat().st_mtime)
+bands = load_risk_bands(BANDS.stat().st_mtime) if BANDS.exists() else None
 all_airlines = sorted(df["AIRLINE_NAME"].dropna().unique().tolist())
 
 if "airline_filter" not in st.session_state:
@@ -147,6 +221,9 @@ filtered = df[
     df["AIRLINE_NAME"].isin(selected_airlines) & df["MONTH"].isin(selected_months)
 ]
 ops = operated(filtered)
+bands_filtered = (
+    bands[bands["AIRLINE_NAME"].isin(selected_airlines)] if bands is not None else None
+)
 
 tab_overview, tab_causes, tab_time, tab_cancels = st.tabs(
     ["Overview", "Causes", "Time & risk", "Cancels vs delay"]
@@ -320,28 +397,112 @@ with tab_causes:
 with tab_time:
     render_kpis(filtered)
 
+    st.subheader("When in the week?")
+    by_dow = ops.groupby("DOW_NAME")["DELAYED"].mean().reindex(DOW_ORDER).rename("DELAYED").reset_index()
+    by_block = (
+        ops.groupby("TIME_BLOCK", observed=True)["DELAYED"]
+        .mean()
+        .reindex(TIME_BLOCK_ORDER)
+        .rename("DELAYED")
+        .reset_index()
+    )
+    col_dow, col_block = st.columns(2)
+    with col_dow:
+        st.plotly_chart(
+            delay_rate_category_bar(
+                by_dow,
+                "DOW_NAME",
+                DOW_ORDER,
+                "Delay rate by weekday (operated flights)",
+                "Weekday",
+            ),
+            use_container_width=True,
+        )
+    with col_block:
+        st.plotly_chart(
+            delay_rate_category_bar(
+                by_block,
+                "TIME_BLOCK",
+                TIME_BLOCK_ORDER,
+                "Delay rate by time block (operated flights)",
+                "Time block",
+            ),
+            use_container_width=True,
+        )
+
+    heat = delay_rate_matrix(ops, "DOW_NAME", "TIME_BLOCK", DOW_ORDER, TIME_BLOCK_ORDER)
+    st.plotly_chart(
+        delay_rate_heatmap(heat, "Delay rate by weekday × time block (operated flights)"),
+        use_container_width=True,
+    )
+
     by_hour = ops.groupby("DEP_HOUR")["DELAYED"].mean().reindex(HOURS).rename("DELAYED").reset_index()
-    fig_c = px.bar(
-        by_hour,
-        x="DEP_HOUR",
-        y="DELAYED",
-        template=PLOTLY_TEMPLATE,
-        title="Delay rate by scheduled departure hour (operated flights)",
-    )
-    fig_c.update_layout(
-        xaxis=dict(
-            title="Scheduled departure hour",
-            type="category",
-            categoryarray=HOURS,
-            categoryorder="array",
+    st.plotly_chart(
+        delay_rate_category_bar(
+            by_hour,
+            "DEP_HOUR",
+            HOURS,
+            "Delay rate by scheduled departure hour (operated flights)",
+            "Scheduled departure hour",
         ),
-        yaxis=dict(tickformat=".1%", title="Delay rate"),
-        margin=dict(l=10, r=10, t=48, b=10),
+        use_container_width=True,
     )
-    st.plotly_chart(fig_c, use_container_width=True)
     st.caption(
         "Hour is scheduled departure (`DEP_HOUR`, 0–23). Same grain as the cards: delayed ÷ operated. "
-        "Overnight hours are thin, so treat 0–4% swings there as noise."
+        "Overnight hours are thin, so treat 0–4% swings there as noise. "
+        "Time blocks are Overnight 0–5, Morning 6–11, Afternoon 12–16, Evening 17–20, Night 21–23."
+    )
+
+    st.subheader("Historical delay risk")
+    if bands_filtered is None:
+        st.info("Risk lookup not found. Run `python src/clean.py` to write `clean/delay_risk_bands.parquet`.")
+    elif len(bands_filtered) == 0:
+        st.caption("No n≥30 airline × weekday × time-block cells for the current airline filter.")
+    else:
+        band_heat = bands_rate_matrix(bands_filtered)
+        st.plotly_chart(
+            delay_rate_heatmap(
+                band_heat,
+                "Historical delay rate by weekday × time block (n≥30 cells)",
+            ),
+            use_container_width=True,
+        )
+        band_view = bands_filtered[
+            ["AIRLINE_NAME", "DOW_NAME", "TIME_BLOCK", "n_flights", "delay_rate", "DELAY_RISK_BAND"]
+        ].copy()
+        band_view["DOW_NAME"] = pd.Categorical(band_view["DOW_NAME"], DOW_ORDER, ordered=True)
+        band_view["TIME_BLOCK"] = pd.Categorical(
+            band_view["TIME_BLOCK"].astype(str), TIME_BLOCK_ORDER, ordered=True
+        )
+        band_view["DELAY_RISK_BAND"] = pd.Categorical(
+            band_view["DELAY_RISK_BAND"].astype(str), ["High", "Medium", "Low"], ordered=True
+        )
+        band_view = band_view.sort_values(
+            ["DELAY_RISK_BAND", "delay_rate", "AIRLINE_NAME"], ascending=[True, False, True]
+        )
+        band_view = band_view.rename(
+            columns={
+                "AIRLINE_NAME": "Airline",
+                "DOW_NAME": "Weekday",
+                "TIME_BLOCK": "Time block",
+                "n_flights": "Flights",
+                "delay_rate": "Delay rate",
+                "DELAY_RISK_BAND": "Risk band",
+            }
+        )
+        st.dataframe(
+            band_view,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Delay rate": st.column_config.NumberColumn(format="%.1%"),
+                "Flights": st.column_config.NumberColumn(format="%d"),
+            },
+        )
+    st.caption(
+        "Historical 2015 risk, not a prediction. "
+        "Airline filter applies; month does not — the lookup is year-round airline × weekday × time-block cells with at least 30 operated flights. "
+        "Low < 15%, Medium 15% to < 25%, High ≥ 25%."
     )
 
 with tab_cancels:
