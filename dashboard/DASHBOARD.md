@@ -47,6 +47,7 @@ PoC today = one page (slim BQ1). Final app = four tabs, same contract.
 - Chart B (month): groupby `MONTH` (1–12). Axis title `Month`. `xaxis` type `category` with `categoryarray=[1..12]` so January stays left. Missing months = gap, not interpolated.
 - Chart C (hour, PoC extra): groupby `DEP_HOUR` (0–23). Clock order, not worst-first. Same `category` + `categoryarray` pattern as month. Missing hours = gap. Overnight bins are small-*n*; do not treat them as a ranking.
 - Cancelled/diverted belong on cancel-rate views later, not in these delay-rate charts.
+- Airport rankings (top origins/destinations): use `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
 
 ---
 

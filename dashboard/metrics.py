@@ -13,6 +13,15 @@ def flights(df: pd.DataFrame) -> int:
 def operated(df):
     return df[df["OPERATED"]]
 
+
+def iata_airports(df: pd.DataFrame, airport_col: str = "ORIGIN_AIRPORT") -> pd.DataFrame:
+    """Keep IATA-coded airport rows. Unmapped BTS IDs stay in the extract for other views."""
+    flag = "ORIGIN_IS_IATA" if airport_col == "ORIGIN_AIRPORT" else "DEST_IS_IATA"
+    if flag in df.columns:
+        return df.loc[df[flag]]
+    codes = df[airport_col].astype(str)
+    return df.loc[codes.str.fullmatch(r"[A-Za-z]{3}", na=False)]
+
 def delay_rate(df) -> float:
     o = operated(df)
     if len(o) == 0:

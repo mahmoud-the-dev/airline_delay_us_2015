@@ -23,7 +23,7 @@ Cite in the PDF as: _US flight delay data from the Bureau of Transportation Stat
 
 - Not 2023/2024 operations; airline map is 2015 (US Airways `US` and Virgin America `VX` still present). Rankings are for 2015, not today’s network.
 - 50k rows: rare routes are noisy. Locked BQs use airline / busy origin airports / month / day-of-week / time-block / cancellations — **not** full route rankings or diversion maps.
-- **October 2015:** origin/destination are 5-digit BTS IDs, not IATA. Person A must map them before airport views.
+- **October 2015:** raw origin/destination are 5-digit BTS IDs. `src/clean.py` maps them to IATA using `raw/lookups/BTS_2015_Airport_ID_IATA.xlsx`. Unmatched IDs stay numeric; airport charts drop those rows only (`ORIGIN_IS_IATA` / `DEST_IS_IATA`), not the whole month.
 - **BQ5 derived table:** `clean/delay_risk_bands.parquet` — historical delay rate by airline × day-of-week × time-block, Low/Med/High bands. Not a forecast.
 - Packager already cleaned types and delay-cause zeros; we still engineer delay flags and time blocks. Cause minutes exist only when arrival delay ≥ 15.
 
