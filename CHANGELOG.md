@@ -1,5 +1,6 @@
 # Changelog (Person A)
 
+- 2026-09-07: BQ5 uses the airline × weekday × time-block table only (no collapsed heatmap). BQ4 adds cancel rate and delay-vs-cancel for the 15 busiest IATA origins. Overview origin bars stay in flight-count order with counts on the bars.
 - 2026-09-07: Cancels vs delay BQ4: cancel rate by airline, delay vs cancel scatter (size = flights), cancel-reason mix.
 - 2026-09-07: Time & risk BQ3 (weekday, time block, heatmap, hour) and BQ5 (`delay_risk_bands.parquet` heatmap + table; historical 2015, not a prediction).
 - 2026-09-07: Causes BQ2: cause-minute share stacked by airline plus overall pie (`cause_share` / `cause_minutes`).

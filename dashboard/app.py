@@ -96,20 +96,6 @@ def delay_rate_matrix(
     return mat.reindex(index=row_order, columns=col_order)
 
 
-def bands_rate_matrix(bands: pd.DataFrame) -> pd.DataFrame:
-    empty = pd.DataFrame(index=DOW_ORDER, columns=TIME_BLOCK_ORDER, dtype="float64")
-    if len(bands) == 0:
-        return empty
-    w = bands.copy()
-    w["num"] = w["delay_rate"] * w["n_flights"]
-    g = w.groupby(["DOW_NAME", "TIME_BLOCK"], observed=True).agg(
-        num=("num", "sum"), den=("n_flights", "sum")
-    )
-    rate = (g["num"] / g["den"]).rename("delay_rate").reset_index()
-    mat = rate.pivot(index="DOW_NAME", columns="TIME_BLOCK", values="delay_rate")
-    return mat.reindex(index=DOW_ORDER, columns=TIME_BLOCK_ORDER)
-
-
 def delay_rate_heatmap(mat: pd.DataFrame, title: str):
     fig = px.imshow(
         mat.astype("float64"),
@@ -343,26 +329,25 @@ with tab_overview:
 
     st.subheader("Which origins?")
     origins = top_origins(filtered, n=15)
-    origins_plot = origins.sort_values(
-        ["delay_rate", "ORIGIN_AIRPORT"], ascending=[False, True], na_position="last"
-    )
     fig_o = px.bar(
-        origins_plot,
+        origins,
         x="delay_rate",
         y="ORIGIN_AIRPORT",
         orientation="h",
+        text="flights",
         hover_data={"flights": True, "delay_rate": ":.1%"},
         template=PLOTLY_TEMPLATE,
-        title="Delay rate at top 15 origins (by flight count)",
+        title="Delay rate at the 15 busiest origins",
     )
     apply_delay_rate_axis(fig_o, x_is_rate=True)
+    fig_o.update_traces(texttemplate="%{text:,} flights", textposition="outside")
     fig_o.update_yaxes(title="Origin", autorange="reversed")
-    fig_o.update_layout(margin=dict(l=10, r=10, t=48, b=10))
+    fig_o.update_layout(margin=dict(l=10, r=10, t=48, b=10), uniformtext_minsize=8, uniformtext_mode="hide")
     st.plotly_chart(fig_o, use_container_width=True)
     st.caption(
-        "Busiest 15 IATA origins in the current filter (`top_origins`). "
-        "Delay rate is delayed ÷ operated at that airport. "
-        "Numeric leftover BTS IDs are dropped from this chart only."
+        "Same 15 IATA origins as `top_origins`: busiest by flight count, not the worst delay rates. "
+        "Bars stay in volume order (ATL first on the full extract). "
+        "Delay rate is delayed ÷ operated at that airport. Numeric leftover BTS IDs are dropped from this chart only."
     )
 
     st.subheader("How long are delays?")
@@ -505,14 +490,6 @@ with tab_time:
     elif len(bands_filtered) == 0:
         st.caption("No n≥30 airline × weekday × time-block cells for the current airline filter.")
     else:
-        band_heat = bands_rate_matrix(bands_filtered)
-        st.plotly_chart(
-            delay_rate_heatmap(
-                band_heat,
-                "Historical delay rate by weekday × time block (n≥30 cells)",
-            ),
-            use_container_width=True,
-        )
         band_view = bands_filtered[
             ["AIRLINE_NAME", "DOW_NAME", "TIME_BLOCK", "n_flights", "delay_rate", "DELAY_RISK_BAND"]
         ].copy()
@@ -536,6 +513,7 @@ with tab_time:
                 "DELAY_RISK_BAND": "Risk band",
             }
         )
+        st.caption("Each row is one airline × weekday × time-block cell with at least 30 operated flights.")
         st.dataframe(
             band_view,
             use_container_width=True,
@@ -596,6 +574,51 @@ with tab_cancels:
         st.caption(
             "Cancel rate is cancelled ÷ all flights (same as the card). "
             "Delay rate is delayed ÷ operated. Point size is flight count."
+        )
+
+    st.subheader("Busy origins")
+    origin_cd = top_origins(filtered, n=15)
+    if len(origin_cd):
+        fig_oc = px.bar(
+            origin_cd,
+            x="cancel_rate",
+            y="ORIGIN_AIRPORT",
+            orientation="h",
+            text="flights",
+            hover_data={"flights": True, "cancel_rate": ":.1%", "delay_rate": ":.1%"},
+            template=PLOTLY_TEMPLATE,
+            title="Cancel rate at the 15 busiest origins",
+        )
+        fig_oc.update_traces(texttemplate="%{text:,} flights", textposition="outside")
+        fig_oc.update_yaxes(title="Origin", autorange="reversed")
+        fig_oc.update_layout(
+            xaxis=dict(tickformat=".1%", title="Cancel rate"),
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        st.plotly_chart(fig_oc, use_container_width=True)
+
+        fig_osc = px.scatter(
+            origin_cd.loc[origin_cd["flights"] > 0],
+            x="delay_rate",
+            y="cancel_rate",
+            size="flights",
+            hover_name="ORIGIN_AIRPORT",
+            hover_data={"flights": True, "delay_rate": ":.1%", "cancel_rate": ":.1%"},
+            template=PLOTLY_TEMPLATE,
+            title="Delay rate vs cancel rate (15 busiest origins)",
+            size_max=48,
+        )
+        fig_osc.update_layout(
+            xaxis=dict(tickformat=".1%", title="Delay rate"),
+            yaxis=dict(tickformat=".1%", title="Cancel rate"),
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        fig_osc.update_traces(marker=dict(sizemin=6, opacity=0.75))
+        st.plotly_chart(fig_osc, use_container_width=True)
+        st.caption(
+            "Same 15 IATA origins as Overview (`top_origins`), busiest by flight count. "
+            "Cancel rate is cancelled ÷ all flights at that airport; delay rate is delayed ÷ operated. "
+            "Numeric leftover BTS IDs are dropped from these charts only."
         )
 
     reason_mix = cancel_reason_share_by_airline(filtered)

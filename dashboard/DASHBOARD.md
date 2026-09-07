@@ -50,7 +50,7 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 - Chart F (weekday, Time & risk): groupby `DOW_NAME`, Monday → Sunday.
 - Chart G (time block, Time & risk): groupby `TIME_BLOCK`, Overnight → Morning → Afternoon → Evening → Night.
 - Chart H (heatmap, Time & risk): weekday × time-block, operated `DELAYED` mean, percent colorbar. Empty cells = gap.
-- Chart D (top 15 origins, Overview): `metrics.top_origins(filtered, n=15)` — busiest IATA origins by flight count; plot `delay_rate` (0–1, percent ticks). Unmatched BTS IDs are dropped from this chart only. Do not drop all of October.
+- Chart D (15 busiest origins, Overview): `metrics.top_origins(filtered, n=15)` — set is busiest IATA origins by flight count; keep that volume order (do not re-rank by delay rate). Plot `delay_rate` (0–1, percent ticks) and show `flights` on the bar/hover. Unmatched BTS IDs are dropped from this chart only. Do not drop all of October.
 - Chart E (avg delay minutes by airline, Overview): `metrics.delayed_operated(filtered)`, groupby `AIRLINE_NAME` mean `ARRIVAL_DELAY`, worst first. Same grain as the avg-delay card.
 - Cancelled/diverted belong on cancel-rate views (Cancels tab), not in these delay-rate charts.
 - Airport rankings (top origins/destinations): use `metrics.top_origins` / `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
@@ -71,7 +71,7 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 
 - Load `clean/delay_risk_bands.parquet`. Do not rebuild bands in the app.
 - Filter by selected airlines (`AIRLINE_NAME`). Empty airline list = no cells. Month does not apply (year-round n≥30 cells).
-- Heatmap: weekday × time-block delay rate from the lookup (n-weighted if several airlines). Table: airline, weekday, block, flights, delay rate, `DELAY_RISK_BAND`.
+- Visual = the table at **airline × weekday × time-block** grain. Do not collapse airlines into a weekday × time-block heatmap (that grain is BQ3, from the filtered operated flights).
 - Caption: historical 2015 risk, not a prediction. Low < 15%, Medium 15% to < 25%, High ≥ 25%.
 
 ---
@@ -81,6 +81,7 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 - Cancel rate = `metrics.cancel_rate` on all rows in the filter (cancelled ÷ flights), not operated-only. Axis and hover as percent.
 - Chart I: cancel rate by airline, worst first. Call `cancel_rate` per airline.
 - Chart J: scatter delay rate vs cancel rate; size = `flights`. Both axes 0–1 with percent ticks. Delay rate still uses `metrics.delay_rate` (operated).
+- Chart K: same `top_origins(filtered, n=15)` set as Overview — cancel-rate bars in volume order, and delay vs cancel scatter (size = flights). IATA-only.
 - Optional cancel-reason mix: among cancelled rows only (`CANCEL_REASON_NAME`), 100% stack by airline plus overall pie. Not a delay-rate chart.
 
 ---
@@ -93,8 +94,8 @@ Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
 |-----|-------------|-------|-----|
 | 1 Overview | KPIs; delay rate by airline; vs overall; by month; top-15 origins; avg delay minutes by airline | — | BQ1 |
 | 2 Causes | KPIs; cause-minute share stacked by airline; overall pie | — | BQ2 |
-| 3 Time & risk | KPIs; delay rate by weekday, time block, weekday×block heatmap, hour; historical risk heatmap + table | — | BQ3, BQ5 |
-| 4 Cancels vs delay | KPIs; cancel rate by airline; delay vs cancel scatter (size = flights); cancel-reason mix | — | BQ4 |
+| 3 Time & risk | KPIs; delay rate by weekday, time block, weekday×block heatmap, hour; BQ5 risk table (airline × weekday × block) | — | BQ3, BQ5 |
+| 4 Cancels vs delay | KPIs; cancel rate by airline; delay vs cancel scatter; same for 15 busiest origins; cancel-reason mix | — | BQ4 |
 
 No fifth tab for BQ5.
 
