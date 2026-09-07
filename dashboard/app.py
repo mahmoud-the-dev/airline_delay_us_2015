@@ -41,6 +41,7 @@ CAUSE_LABELS = {
     "LATE_AIRCRAFT_DELAY": "Late aircraft",
 }
 CAUSE_ORDER = [CAUSE_LABELS[c] for c in CAUSE_COLS]
+CANCEL_REASON_ORDER = ["Carrier", "Weather", "NAS", "Security"]
 
 st.set_page_config(page_title="Airline Delay Intelligence", layout="wide")
 st.title("Airline Delay Intelligence")
@@ -179,6 +180,51 @@ def cause_share_by_airline(df: pd.DataFrame) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame(columns=["cause", "share", "minutes", "AIRLINE_NAME"])
     return pd.concat(rows, ignore_index=True)
+
+
+def cancelled_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Same cancelled definition as `cancel_rate`."""
+    if "CANCELLED" not in df.columns or len(df) == 0:
+        return df.iloc[0:0]
+    s = df["CANCELLED"]
+    if s.dtype == bool:
+        return df.loc[s]
+    return df.loc[pd.to_numeric(s, errors="coerce").fillna(0) > 0]
+
+
+def airline_delay_cancel(df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for airline, part in df.groupby("AIRLINE_NAME", observed=True):
+        rows.append(
+            {
+                "AIRLINE_NAME": airline,
+                "flights": flights(part),
+                "delay_rate": delay_rate(part),
+                "cancel_rate": cancel_rate(part),
+            }
+        )
+    if not rows:
+        return pd.DataFrame(columns=["AIRLINE_NAME", "flights", "delay_rate", "cancel_rate"])
+    return pd.DataFrame(rows)
+
+
+def cancel_reason_share_by_airline(df: pd.DataFrame) -> pd.DataFrame:
+    cancelled = cancelled_rows(df)
+    if len(cancelled) == 0 or "CANCEL_REASON_NAME" not in cancelled.columns:
+        return pd.DataFrame(columns=["AIRLINE_NAME", "reason", "share", "cancels"])
+    reasons = cancelled.loc[cancelled["CANCEL_REASON_NAME"].isin(CANCEL_REASON_ORDER)]
+    if len(reasons) == 0:
+        return pd.DataFrame(columns=["AIRLINE_NAME", "reason", "share", "cancels"])
+    counts = (
+        reasons.groupby(["AIRLINE_NAME", "CANCEL_REASON_NAME"], observed=True)
+        .size()
+        .rename("cancels")
+        .reset_index()
+        .rename(columns={"CANCEL_REASON_NAME": "reason"})
+    )
+    totals = counts.groupby("AIRLINE_NAME")["cancels"].transform("sum")
+    counts["share"] = counts["cancels"] / totals
+    return counts
 
 
 def render_kpis(filtered: pd.DataFrame) -> None:
@@ -507,3 +553,100 @@ with tab_time:
 
 with tab_cancels:
     render_kpis(filtered)
+
+    st.subheader("Who cancels?")
+    by_airline_cd = airline_delay_cancel(filtered)
+    if len(by_airline_cd):
+        by_cancel = by_airline_cd.sort_values("cancel_rate", ascending=False)
+        fig_cancel = px.bar(
+            by_cancel,
+            x="cancel_rate",
+            y="AIRLINE_NAME",
+            orientation="h",
+            hover_data={"flights": True, "cancel_rate": ":.1%"},
+            template=PLOTLY_TEMPLATE,
+            title="Cancel rate by airline",
+        )
+        fig_cancel.update_yaxes(title="Airline", autorange="reversed")
+        fig_cancel.update_layout(
+            xaxis=dict(tickformat=".1%", title="Cancel rate"),
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        st.plotly_chart(fig_cancel, use_container_width=True)
+
+        scatter = by_airline_cd.loc[by_airline_cd["flights"] > 0]
+        fig_sc = px.scatter(
+            scatter,
+            x="delay_rate",
+            y="cancel_rate",
+            size="flights",
+            hover_name="AIRLINE_NAME",
+            hover_data={"flights": True, "delay_rate": ":.1%", "cancel_rate": ":.1%"},
+            template=PLOTLY_TEMPLATE,
+            title="Delay rate vs cancel rate",
+            size_max=48,
+        )
+        fig_sc.update_layout(
+            xaxis=dict(tickformat=".1%", title="Delay rate"),
+            yaxis=dict(tickformat=".1%", title="Cancel rate"),
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        fig_sc.update_traces(marker=dict(sizemin=6, opacity=0.75))
+        st.plotly_chart(fig_sc, use_container_width=True)
+        st.caption(
+            "Cancel rate is cancelled ÷ all flights (same as the card). "
+            "Delay rate is delayed ÷ operated. Point size is flight count."
+        )
+
+    reason_mix = cancel_reason_share_by_airline(filtered)
+    if len(reason_mix):
+        st.subheader("Why were they cancelled?")
+        airline_order = (
+            reason_mix.groupby("AIRLINE_NAME")["cancels"].sum().sort_values(ascending=False).index.tolist()
+        )
+        fig_reason = px.bar(
+            reason_mix,
+            x="share",
+            y="AIRLINE_NAME",
+            color="reason",
+            orientation="h",
+            barmode="stack",
+            category_orders={"AIRLINE_NAME": airline_order, "reason": CANCEL_REASON_ORDER},
+            hover_data={"share": ":.1%", "cancels": True},
+            template=PLOTLY_TEMPLATE,
+            title="Cancel-reason mix by airline",
+        )
+        fig_reason.update_yaxes(title="Airline", autorange="reversed")
+        fig_reason.update_layout(
+            xaxis=dict(tickformat=".1%", title="Share of cancellations", range=[0, 1]),
+            legend_title="Reason",
+            margin=dict(l=10, r=10, t=48, b=10),
+        )
+        st.plotly_chart(fig_reason, use_container_width=True)
+        overall_reasons = (
+            cancelled_rows(filtered)
+            .loc[lambda d: d["CANCEL_REASON_NAME"].isin(CANCEL_REASON_ORDER)]
+            .groupby("CANCEL_REASON_NAME", observed=True)
+            .size()
+            .reindex(CANCEL_REASON_ORDER)
+            .rename("cancels")
+            .dropna()
+            .reset_index()
+            .rename(columns={"CANCEL_REASON_NAME": "reason"})
+        )
+        if len(overall_reasons):
+            fig_reason_pie = px.pie(
+                overall_reasons,
+                names="reason",
+                values="cancels",
+                category_orders={"reason": CANCEL_REASON_ORDER},
+                template=PLOTLY_TEMPLATE,
+                title="Cancel-reason mix (overall)",
+            )
+            fig_reason_pie.update_traces(
+                textinfo="percent+label",
+                hovertemplate="%{label}<br>Share=%{percent}<br>Cancels=%{value:,}<extra></extra>",
+            )
+            fig_reason_pie.update_layout(margin=dict(l=10, r=10, t=48, b=10))
+            st.plotly_chart(fig_reason_pie, use_container_width=True)
+        st.caption("Cancel-reason mix is among cancelled flights only, not among all flights.")

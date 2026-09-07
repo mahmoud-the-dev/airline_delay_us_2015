@@ -52,7 +52,7 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 - Chart H (heatmap, Time & risk): weekday × time-block, operated `DELAYED` mean, percent colorbar. Empty cells = gap.
 - Chart D (top 15 origins, Overview): `metrics.top_origins(filtered, n=15)` — busiest IATA origins by flight count; plot `delay_rate` (0–1, percent ticks). Unmatched BTS IDs are dropped from this chart only. Do not drop all of October.
 - Chart E (avg delay minutes by airline, Overview): `metrics.delayed_operated(filtered)`, groupby `AIRLINE_NAME` mean `ARRIVAL_DELAY`, worst first. Same grain as the avg-delay card.
-- Cancelled/diverted belong on cancel-rate views later, not in these delay-rate charts.
+- Cancelled/diverted belong on cancel-rate views (Cancels tab), not in these delay-rate charts.
 - Airport rankings (top origins/destinations): use `metrics.top_origins` / `metrics.iata_airports` so unmatched BTS IDs are dropped from that chart only. Do not drop all of October.
 
 ---
@@ -76,6 +76,15 @@ Four tabs in `dashboard/app.py`, same contract on every tab.
 
 ---
 
+## Cancel vs delay (Cancels tab)
+
+- Cancel rate = `metrics.cancel_rate` on all rows in the filter (cancelled ÷ flights), not operated-only. Axis and hover as percent.
+- Chart I: cancel rate by airline, worst first. Call `cancel_rate` per airline.
+- Chart J: scatter delay rate vs cancel rate; size = `flights`. Both axes 0–1 with percent ticks. Delay rate still uses `metrics.delay_rate` (operated).
+- Optional cancel-reason mix: among cancelled rows only (`CANCEL_REASON_NAME`), 100% stack by airline plus overall pie. Not a delay-rate chart.
+
+---
+
 ## Four tabs
 
 Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
@@ -85,7 +94,7 @@ Same load, sidebar, cards, operated groupby, percent ticks, `nan` → —.
 | 1 Overview | KPIs; delay rate by airline; vs overall; by month; top-15 origins; avg delay minutes by airline | — | BQ1 |
 | 2 Causes | KPIs; cause-minute share stacked by airline; overall pie | — | BQ2 |
 | 3 Time & risk | KPIs; delay rate by weekday, time block, weekday×block heatmap, hour; historical risk heatmap + table | — | BQ3, BQ5 |
-| 4 Cancels vs delay | KPIs only | cancel rate views; delay vs cancel scatter | BQ4 (+ leftover BQ1) |
+| 4 Cancels vs delay | KPIs; cancel rate by airline; delay vs cancel scatter (size = flights); cancel-reason mix | — | BQ4 |
 
 No fifth tab for BQ5.
 
