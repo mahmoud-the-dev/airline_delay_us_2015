@@ -1,5 +1,6 @@
 # Changelog (Person A)
 
+- 2026-09-07: KPI functions complete.
 - 2026-09-07: Map October 5-digit BTS origin/dest IDs to IATA in `src/clean.py`; leftover IDs stay numeric and are flagged off airport charts only.
 - 2026-09-03: Track `clean/flights.parquet` so Streamlit Cloud can load the dashboard without a local `src/clean.py` run.
 - 2026-09-03: PoC dashboard page locked in `dashboard/DASHBOARD.md` (parquet-only load, empty filter = no rows, metrics-only KPI cards, operated delay-rate charts, percent ticks, nan → —).
