@@ -25,7 +25,7 @@ from dashboard.metrics import (
     operated,
     top_origins,
 )
-from dashboard.theme import PLOTLY_TEMPLATE
+from dashboard.theme import AIRLINE_PALETTE, PLOTLY_TEMPLATE, color_map
 
 CLEAN = ROOT / "clean" / "flights.parquet"
 BANDS = ROOT / "clean" / "delay_risk_bands.parquet"
@@ -233,6 +233,10 @@ if not CLEAN.exists():
 df = load_flights(CLEAN.stat().st_mtime)
 bands = load_risk_bands(BANDS.stat().st_mtime) if BANDS.exists() else None
 all_airlines = sorted(df["AIRLINE_NAME"].dropna().unique().tolist())
+airline_colors = color_map(df["AIRLINE_NAME"], AIRLINE_PALETTE)
+airport_colors = color_map(
+    pd.concat([df["ORIGIN_AIRPORT"], df["DESTINATION_AIRPORT"]], ignore_index=True)
+)
 
 if "airline_filter" not in st.session_state:
     st.session_state.airline_filter = all_airlines.copy()
@@ -275,13 +279,16 @@ with tab_overview:
         by_airline,
         x="DELAYED",
         y="AIRLINE_NAME",
+        color="AIRLINE_NAME",
+        color_discrete_map=airline_colors,
+        category_orders={"AIRLINE_NAME": by_airline["AIRLINE_NAME"].tolist()},
         orientation="h",
         template=PLOTLY_TEMPLATE,
         title="Delay rate by airline (operated flights)",
     )
     apply_delay_rate_axis(fig_a, x_is_rate=True)
     fig_a.update_yaxes(title="Airline", autorange="reversed")
-    fig_a.update_layout(margin=dict(l=10, r=10, t=48, b=10))
+    fig_a.update_layout(margin=dict(l=10, r=10, t=48, b=10), showlegend=False)
     st.plotly_chart(fig_a, use_container_width=True)
 
     overall_rate = delay_rate(filtered)
@@ -293,6 +300,9 @@ with tab_overview:
             vs_overall,
             x="vs_overall",
             y="AIRLINE_NAME",
+            color="AIRLINE_NAME",
+            color_discrete_map=airline_colors,
+            category_orders={"AIRLINE_NAME": vs_overall["AIRLINE_NAME"].tolist()},
             orientation="h",
             template=PLOTLY_TEMPLATE,
             title="Delay rate minus overall (operated flights)",
@@ -301,6 +311,7 @@ with tab_overview:
         fig_vs.update_layout(
             xaxis=dict(tickformat=".1%", title="Delay rate − overall"),
             margin=dict(l=10, r=10, t=48, b=10),
+            showlegend=False,
         )
         fig_vs.add_vline(x=0, line_width=1, line_color="gray")
         st.plotly_chart(fig_vs, use_container_width=True)
@@ -333,6 +344,9 @@ with tab_overview:
         origins,
         x="delay_rate",
         y="ORIGIN_AIRPORT",
+        color="ORIGIN_AIRPORT",
+        color_discrete_map=airport_colors,
+        category_orders={"ORIGIN_AIRPORT": origins["ORIGIN_AIRPORT"].tolist()},
         orientation="h",
         text="flights",
         hover_data={"flights": True, "delay_rate": ":.1%"},
@@ -342,7 +356,12 @@ with tab_overview:
     apply_delay_rate_axis(fig_o, x_is_rate=True)
     fig_o.update_traces(texttemplate="%{text:,} flights", textposition="outside")
     fig_o.update_yaxes(title="Origin", autorange="reversed")
-    fig_o.update_layout(margin=dict(l=10, r=10, t=48, b=10), uniformtext_minsize=8, uniformtext_mode="hide")
+    fig_o.update_layout(
+        margin=dict(l=10, r=10, t=48, b=10),
+        uniformtext_minsize=8,
+        uniformtext_mode="hide",
+        showlegend=False,
+    )
     st.plotly_chart(fig_o, use_container_width=True)
     st.caption(
         "Same 15 IATA origins as `top_origins`: busiest by flight count, not the worst delay rates. "
@@ -362,6 +381,9 @@ with tab_overview:
         by_avg,
         x="ARRIVAL_DELAY",
         y="AIRLINE_NAME",
+        color="AIRLINE_NAME",
+        color_discrete_map=airline_colors,
+        category_orders={"AIRLINE_NAME": by_avg["AIRLINE_NAME"].tolist()},
         orientation="h",
         template=PLOTLY_TEMPLATE,
         title="Avg delay minutes by airline (delayed operated flights)",
@@ -370,6 +392,7 @@ with tab_overview:
     fig_d.update_layout(
         xaxis=dict(title="Avg delay minutes", tickformat=".1f"),
         margin=dict(l=10, r=10, t=48, b=10),
+        showlegend=False,
     )
     st.plotly_chart(fig_d, use_container_width=True)
     st.caption(
@@ -540,6 +563,9 @@ with tab_cancels:
             by_cancel,
             x="cancel_rate",
             y="AIRLINE_NAME",
+            color="AIRLINE_NAME",
+            color_discrete_map=airline_colors,
+            category_orders={"AIRLINE_NAME": by_cancel["AIRLINE_NAME"].tolist()},
             orientation="h",
             hover_data={"flights": True, "cancel_rate": ":.1%"},
             template=PLOTLY_TEMPLATE,
@@ -549,6 +575,7 @@ with tab_cancels:
         fig_cancel.update_layout(
             xaxis=dict(tickformat=".1%", title="Cancel rate"),
             margin=dict(l=10, r=10, t=48, b=10),
+            showlegend=False,
         )
         st.plotly_chart(fig_cancel, use_container_width=True)
 
@@ -558,6 +585,9 @@ with tab_cancels:
             x="delay_rate",
             y="cancel_rate",
             size="flights",
+            color="AIRLINE_NAME",
+            color_discrete_map=airline_colors,
+            category_orders={"AIRLINE_NAME": all_airlines},
             hover_name="AIRLINE_NAME",
             hover_data={"flights": True, "delay_rate": ":.1%", "cancel_rate": ":.1%"},
             template=PLOTLY_TEMPLATE,
@@ -567,9 +597,10 @@ with tab_cancels:
         fig_sc.update_layout(
             xaxis=dict(tickformat=".1%", title="Delay rate"),
             yaxis=dict(tickformat=".1%", title="Cancel rate"),
+            legend_title="Airline",
             margin=dict(l=10, r=10, t=48, b=10),
         )
-        fig_sc.update_traces(marker=dict(sizemin=6, opacity=0.75))
+        fig_sc.update_traces(marker_sizemin=6, marker_opacity=0.75)
         st.plotly_chart(fig_sc, use_container_width=True)
         st.caption(
             "Cancel rate is cancelled ÷ all flights (same as the card). "
@@ -583,6 +614,9 @@ with tab_cancels:
             origin_cd,
             x="cancel_rate",
             y="ORIGIN_AIRPORT",
+            color="ORIGIN_AIRPORT",
+            color_discrete_map=airport_colors,
+            category_orders={"ORIGIN_AIRPORT": origin_cd["ORIGIN_AIRPORT"].tolist()},
             orientation="h",
             text="flights",
             hover_data={"flights": True, "cancel_rate": ":.1%", "delay_rate": ":.1%"},
@@ -594,14 +628,19 @@ with tab_cancels:
         fig_oc.update_layout(
             xaxis=dict(tickformat=".1%", title="Cancel rate"),
             margin=dict(l=10, r=10, t=48, b=10),
+            showlegend=False,
         )
         st.plotly_chart(fig_oc, use_container_width=True)
 
+        origin_scatter = origin_cd.loc[origin_cd["flights"] > 0]
         fig_osc = px.scatter(
-            origin_cd.loc[origin_cd["flights"] > 0],
+            origin_scatter,
             x="delay_rate",
             y="cancel_rate",
             size="flights",
+            color="ORIGIN_AIRPORT",
+            color_discrete_map=airport_colors,
+            category_orders={"ORIGIN_AIRPORT": origin_scatter["ORIGIN_AIRPORT"].tolist()},
             hover_name="ORIGIN_AIRPORT",
             hover_data={"flights": True, "delay_rate": ":.1%", "cancel_rate": ":.1%"},
             template=PLOTLY_TEMPLATE,
@@ -611,9 +650,10 @@ with tab_cancels:
         fig_osc.update_layout(
             xaxis=dict(tickformat=".1%", title="Delay rate"),
             yaxis=dict(tickformat=".1%", title="Cancel rate"),
+            legend_title="Airport",
             margin=dict(l=10, r=10, t=48, b=10),
         )
-        fig_osc.update_traces(marker=dict(sizemin=6, opacity=0.75))
+        fig_osc.update_traces(marker_sizemin=6, marker_opacity=0.75)
         st.plotly_chart(fig_osc, use_container_width=True)
         st.caption(
             "Same 15 IATA origins as Overview (`top_origins`), busiest by flight count. "
